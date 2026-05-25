@@ -257,14 +257,15 @@ class TaskProcessor:
                 file_hash=file_hash,
             )
             slim_doc = process_text_file(file_path)
-            # Override filename with original_filename if provided
-            if original_filename:
-                slim_doc["filename"] = original_filename
         else:
             from utils.docling_client import convert_file
 
             full_doc = await convert_file(file_path, httpx_client=clients.docling_http_client)
             slim_doc = extract_relevant(full_doc)
+
+        # Override filename with original_filename if provided
+        if original_filename:
+            slim_doc["filename"] = original_filename
 
         if chunk_size is not None:
             try:
@@ -527,10 +528,13 @@ class ConnectorFileProcessor(TaskProcessor):
             if not self.user_id:
                 raise ValueError("user_id not provided to ConnectorFileProcessor")
 
-            # Create temporary file from document content
             from utils.file_utils import auto_cleanup_tempfile
+            # Create temporary file from document content            import os
 
-            suffix = get_file_extension(document.mimetype)
+            suffix = os.path.splitext(document.filename)[1]
+            if not suffix:
+                suffix = get_file_extension(document.mimetype)
+
             with auto_cleanup_tempfile(suffix=suffix) as tmp_path:
                 # Write content to temp file
                 with open(tmp_path, 'wb') as f:
@@ -654,7 +658,10 @@ class LangflowConnectorFileProcessor(TaskProcessor):
             # Create temporary file and compute hash to check for duplicates
             from utils.file_utils import auto_cleanup_tempfile
 
-            suffix = get_file_extension(document.mimetype)
+            suffix = os.path.splitext(document.filename)[1]
+            if not suffix:
+                suffix = get_file_extension(document.mimetype)
+
             with auto_cleanup_tempfile(suffix=suffix) as tmp_path:
                 # Write content to temp file
                 with open(tmp_path, 'wb') as f:
@@ -740,7 +747,8 @@ class S3FileProcessor(TaskProcessor):
         from utils.hash_utils import hash_id
 
         try:
-            with auto_cleanup_tempfile() as tmp_path:
+            suffix = os.path.splitext(item)[1]
+            with auto_cleanup_tempfile(suffix=suffix) as tmp_path:
                 # Download object to temporary file
                 with open(tmp_path, 'wb') as tmp_file:
                     self.s3_client.download_fileobj(self.bucket, item, tmp_file)
