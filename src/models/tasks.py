@@ -1,8 +1,14 @@
+from __future__ import annotations
+
+import asyncio
 import itertools
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import ClassVar, Dict, Optional
+from typing import TYPE_CHECKING, ClassVar, Dict, Optional
+
+if TYPE_CHECKING:
+    from models.processors import TaskProcessor
 
 
 class TaskStatus(Enum):
@@ -42,6 +48,8 @@ class UploadTask:
     status: TaskStatus = TaskStatus.PENDING
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
+    processor: TaskProcessor | None = field(default=None, repr=False)
+    background_task: asyncio.Task[None] | None = field(default=None, repr=False)
     _sequence_number: int = field(init=False, repr=False)
 
     def __post_init__(self):
