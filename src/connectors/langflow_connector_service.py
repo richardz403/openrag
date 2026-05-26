@@ -3,11 +3,15 @@ from typing import Any, Dict, List, Optional
 # Create custom processor for connector files using Langflow
 from models.processors import LangflowConnectorFileProcessor
 from services.langflow_file_service import LangflowFileService
+from utils.file_utils import (
+    clean_connector_filename,
+    get_file_extension,
+    langflow_safe_filename_and_mimetype,
+)
 from utils.logging_config import get_logger
 
 from .base import BaseConnector, ConnectorDocument
 from .connection_manager import ConnectionManager
-from utils.file_utils import get_file_extension, clean_connector_filename
 
 logger = get_logger(__name__)
 
@@ -73,11 +77,15 @@ class LangflowConnectorService:
             
             # Clean filename and ensure we don't add a double extension
             processed_filename = clean_connector_filename(document.filename, document.mimetype)
+            # Langflow's docling chokes on text/plain — rename .txt -> .md.
+            processed_filename, processed_mimetype = langflow_safe_filename_and_mimetype(
+                processed_filename, document.mimetype
+            )
 
             file_tuple = (
                 processed_filename,
                 content,
-                document.mimetype or "application/octet-stream",
+                processed_mimetype,
             )
 
             # Step 0: Delete existing chunks for this file before re-ingesting

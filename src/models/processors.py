@@ -5,6 +5,7 @@ from utils.file_utils import (
     get_file_extension,
     clean_connector_filename,
     get_filename_aliases,
+    langflow_safe_filename_and_mimetype,
 )
 
 logger = get_logger(__name__)
@@ -868,14 +869,10 @@ class LangflowFileProcessor(TaskProcessor):
             if not content_type:
                 content_type = 'application/octet-stream'
 
-            # Rename .txt to .md for Langflow compatibility
-            # Langflow has issues processing text/plain files
-            langflow_filename = original_filename
-            if original_filename.lower().endswith('.txt'):
-                langflow_filename = original_filename[:-4] + '.md'
-                content_type = 'text/markdown'
-                logger.debug(f"Renamed {original_filename} to {langflow_filename} for Langflow")
-
+            # Langflow's docling chokes on text/plain — rename .txt -> .md.
+            langflow_filename, content_type = langflow_safe_filename_and_mimetype(
+                original_filename, content_type
+            )
             file_tuple = (langflow_filename, content, content_type)
 
             # Get JWT token using same logic as DocumentFileProcessor
