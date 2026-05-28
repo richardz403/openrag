@@ -506,16 +506,20 @@ class LangflowFileService:
     async def upload_and_ingest_file(
         self,
         file_tuple,
-        session_id: Optional[str] = None,
-        tweaks: Optional[Dict[str, Any]] = None,
-        settings: Optional[Dict[str, Any]] = None,
-        jwt_token: Optional[str] = None,
+        session_id: str | None = None,
+        tweaks: dict[str, Any] | None = None,
+        settings: dict[str, Any] | None = None,
+        jwt_token: str | None = None,
         delete_after_ingest: bool = True,
-        owner: Optional[str] = None,
-        owner_name: Optional[str] = None,
-        owner_email: Optional[str] = None,
-        connector_type: Optional[str] = None,   
-    ) -> Dict[str, Any]:
+        owner: str | None = None,
+        owner_name: str | None = None,
+        owner_email: str | None = None,
+        connector_type: str | None = None,
+        document_id: str | None = None,
+        source_url: str | None = None,
+        allowed_users: list[str] | None = None,
+        allowed_groups: list[str] | None = None,
+    ) -> dict[str, Any]:
         """
         Combined upload, ingest, and delete operation.
         First uploads the file, then runs ingestion on it, then optionally deletes the file.
@@ -575,6 +579,10 @@ class LangflowFileService:
                 owner_name=owner_name,
                 owner_email=owner_email,
                 connector_type=connector_type,
+                document_id=document_id,
+                source_url=source_url,
+                allowed_users=allowed_users,
+                allowed_groups=allowed_groups,
             )
             logger.debug("[LF] Ingestion completed successfully")
         except Exception as e:
