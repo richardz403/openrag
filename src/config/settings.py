@@ -2,6 +2,7 @@ import asyncio
 import concurrent.futures
 import os
 import threading
+from typing import Any
 
 import httpx
 from agentd.patch import patch_openai_with_mcp
@@ -36,6 +37,7 @@ LANGFLOW_OPENSEARCH_PORT = get_env_int("LANGFLOW_OPENSEARCH_PORT", OPENSEARCH_PO
 
 OPENSEARCH_USERNAME = os.getenv("OPENSEARCH_USERNAME", "admin")
 OPENSEARCH_PASSWORD = os.getenv("OPENSEARCH_PASSWORD")
+OPENRAG_FQDN = os.getenv("OPENRAG_FQDN")
 LANGFLOW_URL = os.getenv("LANGFLOW_URL", "http://localhost:7860")
 # Optional: public URL for browser links (e.g., http://localhost:7860)
 LANGFLOW_PUBLIC_URL = os.getenv("LANGFLOW_PUBLIC_URL")
@@ -46,6 +48,10 @@ LANGFLOW_INGEST_FLOW_ID = (
 LANGFLOW_URL_INGEST_FLOW_ID = (
     os.getenv("LANGFLOW_URL_INGEST_FLOW_ID") or "72c3d17c-2dac-4a73-b48a-6518473d7830"
 )
+OPENRAG_BACKEND_INTERNAL_URL = os.getenv(
+    "OPENRAG_BACKEND_INTERNAL_URL",
+    "http://openrag-backend:8000",
+).rstrip("/")
 NUDGES_FLOW_ID = os.getenv("NUDGES_FLOW_ID") or "ebc01d31-1976-46ce-a385-b0240327226c"
 
 
@@ -55,7 +61,7 @@ LANGFLOW_SUPERUSER = os.getenv("LANGFLOW_SUPERUSER")
 LANGFLOW_SUPERUSER_PASSWORD = os.getenv("LANGFLOW_SUPERUSER_PASSWORD")
 # Allow explicit key via environment; generation will be skipped if set
 LANGFLOW_KEY = os.getenv("LANGFLOW_KEY")
-SESSION_SECRET = os.getenv("SESSION_SECRET", "your-secret-key-change-in-production")
+SESSION_SECRET = os.getenv("SESSION_SECRET") or "your-secret-key-change-in-production"
 # Optional explicit JWT signing key. When set (and IBM auth is off),
 # RSA keypair generation is skipped. Read here so callers don't poke
 # os.environ directly.
@@ -204,6 +210,29 @@ RBAC_CACHE_BACKEND = os.getenv("CACHE_BACKEND", "memory").lower()
 # linger for up to this many seconds after a role mutation.
 RBAC_PERMISSION_CACHE_TTL_SECONDS = get_env_int("OPENRAG_PERM_CACHE_TTL", 60)
 
+# TTL (seconds) for cached upstream group memberships used when minting
+# OpenSearch JWTs. Defaults to 0 so group membership changes are resolved per
+# request unless an operator explicitly accepts bounded staleness.
+GROUP_ACL_CACHE_TTL_SECONDS = get_env_int("OPENRAG_GROUP_ACL_CACHE_TTL", 0)
+
+# Minimum interval (seconds) between DLS principal lookup-index refreshes for
+# the same effective OpenSearch user. This bounds connector directory calls and
+# lookup-index writes on authenticated request paths. Group/alias changes can be
+# stale for up to this many seconds; set to 0 for strict per-request refresh.
+DLS_PRINCIPAL_REFRESH_TTL_SECONDS = get_env_int("OPENRAG_DLS_PRINCIPAL_REFRESH_TTL", 60)
+
+ACL_PRINCIPAL_LABELS_MAPPING = {
+    "type": "object",
+    "properties": {
+        "principal": {"type": "keyword"},
+        "kind": {"type": "keyword"},
+        "provider": {"type": "keyword"},
+        "display_name": {"type": "keyword"},
+        "email": {"type": "keyword"},
+        "external_id": {"type": "keyword"},
+    },
+}
+
 # TTL (seconds) for the in-process JWT claims cache. A cached entry is also
 # checked against the token's own `exp` claim on every hit, so a revoked token
 # can linger at most min(this value, token_remaining_lifetime) seconds.
@@ -283,6 +312,22 @@ LANGFLOW_REQUEST_RETRIES = get_env_int("LANGFLOW_REQUEST_RETRIES", 2)
 # Should be >= LANGFLOW_TIMEOUT to allow long-running ingestion to complete
 # Default: 3600 seconds (60 minutes)
 INGESTION_TIMEOUT = get_env_int("INGESTION_TIMEOUT", 3600)
+LANGFLOW_INGEST_CALLBACK_TTL_SECONDS = get_env_int(
+    "LANGFLOW_INGEST_CALLBACK_TTL_SECONDS",
+    INGESTION_TIMEOUT + 300,
+)
+LANGFLOW_INGEST_CALLBACK_BATCH_SIZE = get_env_int("LANGFLOW_INGEST_CALLBACK_BATCH_SIZE", 100)
+
+OPENSEARCH_JWT_TTL_BUFFER_SECONDS = 300
+
+
+def get_opensearch_jwt_ttl_seconds() -> int:
+    """Return the effective short-lived OpenSearch JWT TTL."""
+    return get_env_int(
+        "OPENRAG_OPENSEARCH_JWT_TTL",
+        INGESTION_TIMEOUT + OPENSEARCH_JWT_TTL_BUFFER_SECONDS,
+    )
+
 
 # Two-phase ingestion: backend-side Docling polling configuration.
 # Controls how the OpenRAG backend waits for Docling Serve to finish converting
@@ -344,15 +389,37 @@ INDEX_BODY = {
             "embedding_model": {"type": "keyword"},
             "source_url": {"type": "keyword"},
             "connector_type": {"type": "keyword"},
+            "ingest_run_id": {"type": "keyword"},
+            "connector_file_id": {"type": "keyword"},
             "owner": {"type": "keyword"},
             "allowed_users": {"type": "keyword"},
             "allowed_groups": {"type": "keyword"},
+            "allowed_principals": {"type": "keyword"},
+            "allowed_principal_labels": ACL_PRINCIPAL_LABELS_MAPPING,
             "user_permissions": {"type": "object"},
             "group_permissions": {"type": "object"},
             "created_time": {"type": "date"},
             "modified_time": {"type": "date"},
             "indexed_time": {"type": "date"},
             "metadata": {"type": "object"},
+        }
+    },
+}
+
+DLS_PRINCIPAL_INDEX_NAME = "openrag_dls_principals"
+DLS_PRINCIPAL_INDEX_BODY: dict[str, Any] = {
+    "settings": {
+        "index": {"number_of_replicas": 0, "number_of_shards": 1},
+    },
+    "mappings": {
+        "properties": {
+            "user_name": {"type": "keyword"},
+            "auth_user_id": {"type": "keyword"},
+            "auth_email": {"type": "keyword"},
+            "provider": {"type": "keyword"},
+            "principals": {"type": "keyword"},
+            "principal_labels": ACL_PRINCIPAL_LABELS_MAPPING,
+            "updated_at": {"type": "date"},
         }
     },
 }
@@ -367,7 +434,7 @@ API_KEYS_INDEX_BODY = {
     "mappings": {
         "properties": {
             "key_id": {"type": "keyword"},
-            "key_hash": {"type": "keyword"},  # SHA-256 hash, never store plaintext
+            "key_hash": {"type": "keyword"},  # Keyed digest, never store plaintext
             "key_prefix": {"type": "keyword"},  # First 8 chars for display (e.g., "orag_abc1")
             "user_id": {"type": "keyword"},
             "user_email": {"type": "keyword"},
@@ -1120,6 +1187,22 @@ class AppClients:
             headers=headers,
             http_compress=True,
             timeout=30,  # 30 second timeout
+            max_retries=3,
+            retry_on_timeout=True,
+        )
+
+    def create_basic_opensearch_client(self, username: str, password: str):
+        """Create an OpenSearch client with explicit basic credentials."""
+        return AsyncOpenSearch(
+            hosts=[{"host": OPENSEARCH_HOST, "port": OPENSEARCH_PORT}],
+            connection_class=AIOHttpConnection,
+            scheme="https",
+            use_ssl=True,
+            verify_certs=False,
+            ssl_assert_fingerprint=None,
+            http_auth=(username, password),
+            http_compress=True,
+            timeout=30,
             max_retries=3,
             retry_on_timeout=True,
         )

@@ -1327,18 +1327,26 @@ async def rollback_onboarding(
                                 opensearch_client = session_manager.get_user_opensearch_client(
                                     user.user_id, user.jwt_token
                                 )
-                                from config.settings import get_index_name
+                                from config.settings import clients, get_index_name
+                                from utils.opensearch_delete import (
+                                    collect_visible_document_ids,
+                                    delete_document_ids,
+                                )
                                 from utils.opensearch_queries import (
-                                    build_filename_delete_body,
+                                    build_owned_filename_query,
                                 )
 
-                                delete_query = build_filename_delete_body(filename)
-                                result = await opensearch_client.delete_by_query(
-                                    index=get_index_name(),
-                                    body=delete_query,
-                                    conflicts="proceed",
+                                index_name = get_index_name()
+                                document_ids = await collect_visible_document_ids(
+                                    opensearch_client,
+                                    index=index_name,
+                                    query=build_owned_filename_query(filename, user.user_id),
                                 )
-                                deleted_count = result.get("deleted", 0)
+                                deleted_count = await delete_document_ids(
+                                    clients.opensearch,
+                                    index=index_name,
+                                    document_ids=document_ids,
+                                )
                                 if deleted_count > 0:
                                     deleted_files.append(filename)
                                     logger.info(
