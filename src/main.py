@@ -1853,6 +1853,12 @@ async def create_app():
         tags=["internal"],
     )
     app.add_api_route(
+        "/connectors/{connector_type}/check-duplicates",
+        connectors.connector_check_duplicates,
+        methods=["POST"],
+        tags=["internal"],
+    )
+    app.add_api_route(
         "/connectors/sync-all",
         connectors.sync_all_connectors,
         methods=["POST"],

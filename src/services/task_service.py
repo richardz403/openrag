@@ -549,6 +549,7 @@ class TaskService:
                     exception=str(e),
                 )
 
+
     def get_task_status(self, user_id: str, task_id: str) -> dict | None:
         """Get the status of a specific upload task
 
