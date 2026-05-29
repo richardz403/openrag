@@ -91,7 +91,7 @@ def clean_connector_filename(filename: str, mimetype: str) -> str:
     If the MIME type is unknown, the original filename (and its extension) is kept as-is
     rather than appending a meaningless .bin suffix.
     """
-    clean_name = filename.replace(" ", "_").replace("/", "_")
+    clean_name = filename.replace("/", "_")
     suffix = get_file_extension(mimetype)
     if suffix is None:
         # Unknown type — keep whatever extension the file already has

@@ -19,6 +19,7 @@ interface DuplicateHandlingDialogProps {
   isLoading?: boolean;
   duplicateLabel?: string;
   duplicateCount?: number;
+  duplicateNames?: string[];
 }
 
 export const DuplicateHandlingDialog: React.FC<
@@ -30,24 +31,27 @@ export const DuplicateHandlingDialog: React.FC<
   isLoading = false,
   duplicateLabel,
   duplicateCount,
+  duplicateNames,
 }) => {
   const handleOverwrite = async () => {
     await onOverwrite();
     onOpenChange(false);
   };
 
+  const effectiveCount = duplicateNames?.length ?? duplicateCount;
+
   const description =
-    typeof duplicateCount === "number"
-      ? duplicateCount === 1
+    typeof effectiveCount === "number"
+      ? effectiveCount === 1
         ? "1 duplicate document already exists. Overwriting will replace the existing document version. This can't be undone."
-        : `${duplicateCount} duplicate documents already exist. Overwriting will replace the existing document versions. This can't be undone.`
+        : `${effectiveCount} duplicate documents already exist. Overwriting will replace the existing document versions. This can't be undone.`
       : duplicateLabel
         ? `A document named "${duplicateLabel}" already exists. Overwriting will replace the existing document version. This can't be undone.`
         : "Overwriting will replace the existing document with another version. This can't be undone.";
   const overwriteLabel =
-    typeof duplicateCount === "number" ? "Overwrite duplicates" : "Overwrite";
+    typeof effectiveCount === "number" ? "Overwrite duplicates" : "Overwrite";
   const cancelLabel =
-    typeof duplicateCount === "number"
+    typeof effectiveCount === "number"
       ? "Skip duplicates & continue"
       : "Cancel";
 
@@ -60,6 +64,18 @@ export const DuplicateHandlingDialog: React.FC<
             {description}
           </DialogDescription>
         </DialogHeader>
+
+        {duplicateNames && duplicateNames.length > 0 && (
+          <div className="max-h-40 overflow-y-auto rounded-md border bg-muted/30 px-3 py-2">
+            <ul className="space-y-0.5 text-sm text-muted-foreground">
+              {duplicateNames.map((name) => (
+                <li key={name} className="truncate">
+                  • {name}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         <DialogFooter className="flex-row gap-2 justify-end">
           <Button

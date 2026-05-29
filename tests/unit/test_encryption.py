@@ -140,7 +140,8 @@ async def test_connection_manager(tmp_path):
     assert found_gd and found_s3 and found_ibm
     print("OK")
 
-def test_auto_upgrade_features(tmp_path):
+def test_auto_upgrade_features(tmp_path, monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     test_yaml = tmp_path / "test_openrag_config_upgrade.yaml"
     import yaml
     # Write purely plaintext config

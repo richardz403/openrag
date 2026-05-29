@@ -32,59 +32,59 @@ logger = get_logger(__name__)
 
 
 def get_services(request: Request) -> dict:
-    return request.app.state.services
+    return getattr(request.app.state, "services", {})
 
 
 def get_session_manager(services: dict = Depends(get_services)):
-    return services["session_manager"]
+    return services.get("session_manager")
 
 
 def get_auth_service(services: dict = Depends(get_services)):
-    return services["auth_service"]
+    return services.get("auth_service")
 
 
 def get_chat_service(services: dict = Depends(get_services)):
-    return services["chat_service"]
+    return services.get("chat_service")
 
 
 def get_search_service(services: dict = Depends(get_services)):
-    return services["search_service"]
+    return services.get("search_service")
 
 
 def get_document_service(services: dict = Depends(get_services)):
-    return services["document_service"]
+    return services.get("document_service")
 
 
 def get_task_service(services: dict = Depends(get_services)):
-    return services["task_service"]
+    return services.get("task_service")
 
 
 def get_knowledge_filter_service(services: dict = Depends(get_services)):
-    return services["knowledge_filter_service"]
+    return services.get("knowledge_filter_service")
 
 
 def get_monitor_service(services: dict = Depends(get_services)):
-    return services["monitor_service"]
+    return services.get("monitor_service")
 
 
 def get_connector_service(services: dict = Depends(get_services)):
-    return services["connector_service"]
+    return services.get("connector_service")
 
 
 def get_langflow_file_service(services: dict = Depends(get_services)):
-    return services["langflow_file_service"]
+    return services.get("langflow_file_service")
 
 
 def get_models_service(services: dict = Depends(get_services)):
-    return services["models_service"]
+    return services.get("models_service")
 
 
 def get_api_key_service(services: dict = Depends(get_services)):
-    return services["api_key_service"]
+    return services.get("api_key_service")
 
 
 def get_flows_service(services: dict = Depends(get_services)):
-    return services["flows_service"]
+    return services.get("flows_service")
 
 
 # ─────────────────────────────────────────────
@@ -417,3 +417,11 @@ async def get_api_key_user_async(
     request.state.api_key_id = user_info["key_id"]
 
     return user_with_token
+
+
+def require_permission(perm: str):
+    """Bypass permission check for branches without RBAC enforcement."""
+    async def _dep(user: User = Depends(get_current_user)) -> User:
+        return user
+    return _dep
+

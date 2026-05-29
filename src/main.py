@@ -14,7 +14,6 @@ import uuid
 from html.parser import HTMLParser
 
 # Configure structured logging early
-from connectors.langflow_connector_service import LangflowConnectorService
 from connectors.service import ConnectorService
 from services.flows_service import FlowsService
 from utils.embeddings import create_index_body
@@ -48,7 +47,7 @@ from api import (
     upload,
 )
 
-from api.connector_router import ConnectorRouter
+
 from connectors.ibm_cos.api import (
     ibm_cos_defaults,
     ibm_cos_configure,
@@ -1388,12 +1387,7 @@ async def initialize_services():
     langflow_file_service = LangflowFileService(flows_service=flows_service)
     langflow_mcp_service = LangflowMCPService()
 
-    # Initialize both connector services
-    langflow_connector_service = LangflowConnectorService(
-        task_service=task_service,
-        session_manager=session_manager,
-    )
-    openrag_connector_service = ConnectorService(
+    connector_service = ConnectorService(
         patched_async_client=clients,
         embed_model=get_embedding_model(),
         index_name=get_index_name(),
@@ -1401,12 +1395,9 @@ async def initialize_services():
         session_manager=session_manager,
         models_service=models_service,
         document_service=document_service,
-    )
-
-    # Create connector router that chooses based on configuration
-    connector_service = ConnectorRouter(
-        langflow_connector_service=langflow_connector_service,
-        openrag_connector_service=openrag_connector_service,
+        docling_service=getattr(clients, "docling_service", None),
+        flows_service=flows_service,
+        langflow_service=langflow_file_service,
     )
 
     # Initialize auth service

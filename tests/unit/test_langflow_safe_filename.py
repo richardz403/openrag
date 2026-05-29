@@ -17,7 +17,15 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 
-from utils.file_utils import langflow_safe_filename_and_mimetype  # noqa: E402
+from utils.file_utils import clean_connector_filename, langflow_safe_filename_and_mimetype  # noqa: E402
+
+
+def test_clean_connector_filename_preserves_spaces():
+    assert clean_connector_filename("My Report.pdf", "application/pdf") == "My Report.pdf"
+
+
+def test_clean_connector_filename_preserves_spaces_when_enforcing_extension():
+    assert clean_connector_filename("My Report", "application/pdf") == "My Report.pdf"
 
 
 @pytest.mark.parametrize(

@@ -204,11 +204,9 @@ export class SharePointV8Handler {
         commands: {
           pick: {
             action: "select",
-            select: {
-              urls: {
-                download: true, // Request download URLs
-              },
-            },
+            // Folders do not have download URLs. The backend expands picked
+            // folder IDs through Graph and fetches download URLs for files.
+            select: {},
           },
         },
       };
@@ -226,11 +224,8 @@ export class SharePointV8Handler {
       console.log("Picker options:", JSON.stringify(options, null, 2));
       console.log("Channel ID:", this.channelId);
 
-      // OPTION A FIX: Don't POST the token via form - let picker request it via authenticate command
-      // The form-posted token might be causing "invalid_client" errors
-      // Reference: https://learn.microsoft.com/en-us/onedrive/developer/controls/file-pickers/
-
-      // === DIAGNOSTIC: Token delivery method ===
+      // Let the picker request tokens via authenticate commands. Posting no
+      // token keeps the token audience tied to each resource request.
       console.log(
         "Token delivery method: authenticate command only (no form POST)",
       );
@@ -238,9 +233,11 @@ export class SharePointV8Handler {
         "Token will be provided when picker sends 'authenticate' command",
       );
 
-      // Use GET request instead of POST with token
-      // Simply navigate to the picker URL - token will be provided via messaging
-      this.win.location.href = pickerUrl;
+      const form = this.win.document.createElement("form");
+      form.setAttribute("action", pickerUrl);
+      form.setAttribute("method", "POST");
+      this.win.document.body.append(form);
+      form.submit();
 
       // Setup message listener for communication with picker
       this.messageListener = this.handleWindowMessage.bind(this);
@@ -513,7 +510,9 @@ export class SharePointV8Handler {
       // Convert picked items to CloudFile format
       const files: CloudFile[] = (command.items || []).map((item) => {
         // Determine mime type
-        let mimeType = item.file?.mimeType;
+        let mimeType = item.folder
+          ? "application/vnd.microsoft.folder"
+          : item.file?.mimeType;
         if (!mimeType && item.name) {
           mimeType = this.inferMimeType(item.name);
         }

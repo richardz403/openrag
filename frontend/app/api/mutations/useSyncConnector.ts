@@ -45,8 +45,10 @@ const syncConnector = async ({
       mimeType: string;
       downloadUrl?: string;
       size?: number;
+      isFolder?: boolean;
     }>;
     settings?: any;
+    replace_duplicates?: boolean;
     /** When true, ingest all files from the connector (bypasses the re-sync gate). */
     sync_all?: boolean;
     /** Restrict ingest to these bucket names (IBM COS). */

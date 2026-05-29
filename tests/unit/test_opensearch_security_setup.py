@@ -33,7 +33,7 @@ async def test_setup_opensearch_security_success():
         await setup_opensearch_security(mock_client)
 
         # Verify calls
-        assert mock_client.transport.perform_request.call_count == 6
+        assert mock_client.transport.perform_request.call_count == 7
         mock_client.cluster.health.assert_called_once()
 
         # Check the role creation body for dynamic patterns
@@ -51,10 +51,11 @@ async def test_setup_opensearch_security_graceful_auth_error():
     mock_client = MagicMock()
     # Mock a 401 Unauthorized error
     mock_client.transport.perform_request = AsyncMock(side_effect=Exception("401 Unauthorized"))
+    mock_client.cluster.health = AsyncMock()
     
     # This should NOT raise an exception
     await setup_opensearch_security(mock_client)
-    assert mock_client.transport.perform_request.call_count == 1
+    assert mock_client.transport.perform_request.call_count == 2
 
 @pytest.mark.asyncio
 async def test_setup_opensearch_security_missing_files():

@@ -440,7 +440,7 @@ class DocumentFileProcessor(TaskProcessor):
             document_service,
             models_service,
             docling_service=docling_service
-            or (document_service.docling_service if document_service else None),
+            or (getattr(document_service, "docling_service", None) if document_service else None),
         )
         self.owner_user_id = owner_user_id
         self.jwt_token = jwt_token
@@ -511,7 +511,7 @@ class ConnectorFileProcessor(TaskProcessor):
         super().__init__(
             document_service=document_service,
             models_service=models_service,
-            docling_service=document_service.docling_service if document_service else None,
+            docling_service=getattr(document_service, "docling_service", None) if document_service else None,
         )
         self.connector_service = connector_service
         self.connection_id = connection_id
@@ -903,6 +903,7 @@ class LangflowFileProcessor(TaskProcessor):
         session_id: str = None,
         tweaks: dict = None,
         settings: dict = None,
+        delete_after_ingest: bool = True,
         replace_duplicates: bool = False,
         connector_type: str = "local",
         docling_polling_service=None,
@@ -917,6 +918,7 @@ class LangflowFileProcessor(TaskProcessor):
         self.session_id = session_id
         self.tweaks = tweaks or {}
         self.settings = settings
+        self.delete_after_ingest = delete_after_ingest
         self.replace_duplicates = replace_duplicates
         self.connector_type = connector_type
         # Backend-side Docling polling coordinator. Injected by TaskService
@@ -995,6 +997,7 @@ class LangflowFileProcessor(TaskProcessor):
                 tweaks=final_tweaks,
                 settings=self.settings,
                 jwt_token=effective_jwt,
+                delete_after_ingest=self.delete_after_ingest,
                 owner=self.owner_user_id,
                 owner_name=self.owner_name,
                 owner_email=self.owner_email,

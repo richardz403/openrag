@@ -16,19 +16,24 @@ interface FileItemProps {
   onRemove: (fileId: string) => void;
 }
 
-const getFileIcon = (mimeType: string) => {
-  if (mimeType.includes("folder")) {
+const getFileIcon = (file: CloudFile) => {
+  if (file.isFolder || file.mimeType.includes("folder")) {
     return <Folder className="h-6 w-6" />;
   }
   return <FileText className="h-6 w-6" />;
 };
 
-const getMimeTypeLabel = (mimeType: string) => {
+const getMimeTypeLabel = (file: CloudFile) => {
+  if (file.isFolder) {
+    return "Folder";
+  }
+
   const typeMap: { [key: string]: string } = {
     "application/vnd.google-apps.document": "Google Doc",
     "application/vnd.google-apps.spreadsheet": "Google Sheet",
     "application/vnd.google-apps.presentation": "Google Slides",
     "application/vnd.google-apps.folder": "Folder",
+    "application/vnd.microsoft.folder": "Folder",
     "application/pdf": "PDF",
     "text/plain": "Text",
     "text/csv": "CSV",
@@ -51,7 +56,9 @@ const getMimeTypeLabel = (mimeType: string) => {
     "image/svg+xml": "SVG",
   };
 
-  return typeMap[mimeType] || mimeType?.split("/").pop() || "Document";
+  return (
+    typeMap[file.mimeType] || file.mimeType?.split("/").pop() || "Document"
+  );
 };
 
 const formatFileSize = (bytes?: number) => {
@@ -85,10 +92,10 @@ export const FileItem = ({ file, onRemove, provider }: FileItemProps) => (
     className="flex items-center justify-between p-1.5 rounded-md text-xs"
   >
     <div className="flex items-center gap-2 flex-1 min-w-0">
-      {provider ? getProviderIcon(provider) : getFileIcon(file.mimeType)}
+      {file.isFolder ? getFileIcon(file) : getProviderIcon(provider)}
       <span className="truncate font-medium text-sm mr-2">{file.name}</span>
       <span className="text-sm text-muted-foreground">
-        {getMimeTypeLabel(file.mimeType)}
+        {getMimeTypeLabel(file)}
       </span>
     </div>
     <div className="flex items-center gap-1">
