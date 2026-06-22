@@ -2062,11 +2062,12 @@ async def update_docling_preset(
             settings=settings_toggles,
             preset_config=preset_config,
         )
-
+    except HTTPException:
+        # Preserve intended HTTP status codes (e.g. 400 for an invalid preset)
+        raise
     except Exception as e:
         logger.error("Failed to update docling settings", error=str(e))
-        raise HTTPException(status_code=500, detail=f"Failed to update docling settings: {str(e)}")
-
+        raise HTTPException(status_code=500, detail="Failed to update docling settings") from e
 
 async def refresh_openrag_docs(
     document_service=Depends(get_document_service),
